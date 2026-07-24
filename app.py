@@ -1,90 +1,71 @@
 import streamlit as st
-import speech_recognition as sr
+import datetime
 import threading
 import time
-from datetime import datetime
+from streamlit_mic_recorder import mic_recorder
+import speech_recognition as sr
 
-# Page Config
-st.set_page_config(page_title="Silent SOS AI", page_icon="🚨", layout="wide")
+st.set_page_config(page_title="Silent SOS AI", layout="centered")
 
 st.title("🚨 Silent SOS AI")
 st.markdown("**AI-powered Emergency Detection System**")
-st.markdown("Boliye 'HELP' ya 'bachao' aur AI turant SOS bhej degi")
+st.write("Boliye 'HELP' ya 'bachao' aur turant SOS bhej degi")
 
-# Session State
-if 'monitoring' not in st.session_state:
+if "monitoring" not in st.session_state:
     st.session_state.monitoring = False
-if 'alert_sent' not in st.session_state:
+if "alert_sent" not in st.session_state:
     st.session_state.alert_sent = False
+if "last_heard" not in st.session_state:
+    st.session_state.last_heard = ""
 
-# Columns
-col1, col2 = st.columns(2)
+DANGER_WORDS = ["help", "bachao", "save me", "police", "madad"]
 
-# AI Monitoring Function
-def start_monitoring():
-    r = sr.Recognizer()
-    danger_words = ["help", "bachao", "chodo", "madad", "police", "save me"]
-    
-    with sr.Microphone() as source:
-        st.warning("🎤 AI is Listening... Say 'HELP' for emergency")
-        r.adjust_for_ambient_noise(source, duration=1)
+def trigger_alert(word):
+    st.error(f"🚨 DANGER DETECTED: '{word}'")
+    st.error("SOS TRIGGERED!")
+    st.success("📍 Location Sent: Pathankot, Punjab")
+    st.success("📞 Alert Sent to: +916239719750")
+    st.success(f"⏰ Time: {datetime.datetime.now().strftime('%H:%M:%S')}")
+    st.session_state.alert_sent = True
+
+def listen_loop():
+    recognizer = sr.Recognizer()
+    while st.session_state.monitoring:
+        audio = mic_recorder(start_prompt="🎤 Boliye HELP", stop_prompt="⏹️ Stop", key='mic')
         
-        while st.session_state.monitoring:
+        if audio:
             try:
-                audio = r.listen(source, timeout=5, phrase_time_limit=3)
-                text = r.recognize_google(audio, language="en-IN").lower()
-                st.info(f"Heard: {text}")
+                text = recognizer.recognize_google(audio["bytes"], language="en-IN")
+                st.session_state.last_heard = text
+                st.write(f"**Heard:** {text}")
                 
-                for word in danger_words:
-                    if word in text:
-                        st.error(f"🚨 DANGER DETECTED: '{text}'")
-                        st.error("SOS TRIGGERED!")
-                        st.success("📍 Location Sent: Pathankot, Punjab")
-                        st.success("📞 Alert Sent to: +916239719750")
-                        st.success(f"⏰ Time: {datetime.now().strftime('%H:%M:%S')}")
-                        st.session_state.monitoring = False
-                        st.session_state.alert_sent = True
-                        return
-            except sr.WaitTimeoutError:
+                for word in DANGER_WORDS:
+                    if word in text.lower() and not st.session_state.alert_sent:
+                        trigger_alert(word)
+                        time.sleep(10)
+                        st.session_state.alert_sent = False
+            except:
                 pass
-            except sr.UnknownValueError:
-                pass
-            except Exception as e:
-                pass
+        time.sleep(0.5)
 
-# Buttons
+col1, col2 = st.columns(2)
 with col1:
     if st.button("▶️ Start AI Monitoring", type="primary"):
         st.session_state.monitoring = True
         st.session_state.alert_sent = False
-        threading.Thread(target=start_monitoring, daemon=True).start()
+        threading.Thread(target=listen_loop, daemon=True).start()
 
 with col2:
     if st.button("⏹️ Stop Monitoring"):
         st.session_state.monitoring = False
-        st.write("Monitoring Stopped")
-st.markdown("---")
 
-# TEST BUTTON FOR DEMO
+st.markdown("---")
 if st.button("🚨 TEST ALERT - Click karke dekho", type="secondary"):
-    st.error("🚨 DANGER DETECTED: 'TEST MODE'")
-    st.error("SOS TRIGGERED!")
-    st.success("📍 Location Sent: Pathankot, Punjab")
-    st.success("📞 Alert Sent to: +916239719750")
-    st.success(f"⏰ Time: {datetime.now().strftime('%H:%M:%S')}")
-    st.session_state.alert_sent = True
-# Status
-if st.session_state.monitoring:
-    st.success("✅ AI is Active and Listening...")
-elif st.session_state.alert_sent:
-    st.error("🚨 Alert was sent! Stay Safe!")
-else:
-    st.info("🔴 AI is Idle. Press Start to begin.")
+    trigger_alert("TEST MODE")
 
-# Instructions
 st.markdown("---")
-st.subheader("📖 How to Use:")
-st.markdown("1. **Start AI Monitoring** button dabao")
-st.markdown("2. Mic permission **Allow** karo")
-st.markdown("3. Emergency me bolo: **HELP, bachao, police, madad**")
-st.markdown("4. AI turant alert dikha degi")
+if st.session_state.monitoring:
+    st.info("✅ AI is Active and Listening...")
+    st.write(f"**Last Heard:** {st.session_state.last_heard}")
+else:
+    st.warning("🔴 AI is Idle. Press Start to begin.")
