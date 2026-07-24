@@ -1,25 +1,35 @@
 import streamlit as st
 import datetime
+import speech_recognition as sr
+from streamlit_mic_recorder import speech_recorder
 
 st.set_page_config(page_title="Silent SOS AI", layout="centered")
 st.title("🚨 Silent SOS AI")
 st.markdown("**AI-powered Emergency Detection System**")
-st.write("Real-time voice detection logic ready hai. Demo ke liye button use karein")
 
-def trigger_alert():
-    st.error(f"🚨 DANGER DETECTED: 'HELP'")
-    st.error("AI NE DANGER WORD PEHCHANA!")
-    st.success("📍 Live Location Sent: Pathankot, Punjab")
-    st.success("📞 Emergency Contact Alerted: +916239719750")
-    st.success(f"⏰ Alert Time: {datetime.datetime.now().strftime('%H:%M:%S')}")
-    st.warning("Police aur family ko turant notification bhej di gayi")
+def trigger_alert(word):
+    st.error(f"🚨 DANGER DETECTED: '{word}'")
+    st.success("📍 Location Sent: Pathankot, Punjab")
+    st.success("📞 Alert Sent to: +916239719750")
+    st.success(f"⏰ Time: {datetime.datetime.now().strftime('%H:%M:%S')}")
     st.balloons()
 
-st.markdown("---")
-st.subheader("Demo Mode")
+st.subheader("🎤 Voice Detection")
+audio = speech_recorder(language="en", use_container_width=True)
 
-if st.button("🚨 ACTIVATE EMERGENCY SOS", type="primary", use_container_width=True):
-    trigger_alert()
+if audio:
+    r = sr.Recognizer()
+    try:
+        with sr.AudioFile(audio) as source:
+            data = r.record(source)
+        text = r.recognize_google(data, language="en")
+        st.write(f"Heard: {text}")
+        if "help" in text.lower():
+            trigger_alert(text)
+    except:
+        st.warning("Suna nahi... dobara bolo")
 
 st.markdown("---")
-st.info("**Kaise kaam karta hai:** \n1. Mic hamesha background me sunta hai \n2. 'HELP' ya 'bachao' bolte hi turant SOS trigger \n3. Location + SMS + Call auto chale jate hai")
+st.subheader("Demo Button")
+if st.button("🚨 TEST EMERGENCY ALERT", type="primary", use_container_width=True):
+    trigger_alert("HELP")
