@@ -1,4 +1,1 @@
-streamlit
-SpeechRecognition
-streamlit-mic-recorder
-geopy
+streamlit==1.60.0
