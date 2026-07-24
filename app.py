@@ -11,11 +11,12 @@ st.title("🚨 Silent SOS AI")
 st.markdown("**AI-powered Emergency Detection System**")
 st.write("Boliye 'HELP' ya 'bachao' aur turant SOS bhej degi")
 
-if "monitoring" not in st.session_state:
+# Session State - IMPORTANT
+if 'monitoring' not in st.session_state:
     st.session_state.monitoring = False
-if "alert_sent" not in st.session_state:
+if 'alert_sent' not in st.session_state:
     st.session_state.alert_sent = False
-if "last_heard" not in st.session_state:
+if 'last_heard' not in st.session_state:
     st.session_state.last_heard = ""
 
 DANGER_WORDS = ["help", "bachao", "save me", "police", "madad"]
@@ -37,7 +38,7 @@ def listen_loop():
             try:
                 text = recognizer.recognize_google(audio["bytes"], language="en-IN")
                 st.session_state.last_heard = text
-                st.write(f"**Heard:** {text}")
+                st.rerun()
                 
                 for word in DANGER_WORDS:
                     if word in text.lower() and not st.session_state.alert_sent:
@@ -54,10 +55,12 @@ with col1:
         st.session_state.monitoring = True
         st.session_state.alert_sent = False
         threading.Thread(target=listen_loop, daemon=True).start()
+        st.rerun()
 
 with col2:
     if st.button("⏹️ Stop Monitoring"):
         st.session_state.monitoring = False
+        st.rerun()
 
 st.markdown("---")
 if st.button("🚨 TEST ALERT - Click karke dekho", type="secondary"):
@@ -66,6 +69,8 @@ if st.button("🚨 TEST ALERT - Click karke dekho", type="secondary"):
 st.markdown("---")
 if st.session_state.monitoring:
     st.info("✅ AI is Active and Listening...")
-    st.write(f"**Last Heard:** {st.session_state.last_heard}")
 else:
     st.warning("🔴 AI is Idle. Press Start to begin.")
+
+if st.session_state.last_heard:
+    st.write(f"**Last Heard:** {st.session_state.last_heard}")
