@@ -1,77 +1,81 @@
 import streamlit as st
 import speech_recognition as sr
 import threading
-st.set_page_config(page_title="Silent SOS AI", layout="wide")
+import time
+from datetime import datetime
 
-st.markdown("""
-<style>
-.stApp {background: white; color: black;}
-h1 {color: black; font-size: 55px; font-weight: 900; text-align: center;}
-.gold {color: #C49A3B; font-weight: bold; text-align: center;}
-.tag {border: 2px solid black; border-radius: 25px; padding: 8px 20px; margin: 5px;}
-</style>
-""", unsafe_allow_html=True)
+# Page Config
+st.set_page_config(page_title="Silent SOS AI", page_icon="🚨", layout="wide")
 
-st.markdown('<p class="gold" style="font-size:24px">SUMMER SCHOOL \'26</p>', unsafe_allow_html=True)
-st.markdown('<div style="text-align:center"><span class="tag">AI FIRST HACKATHON</span></div>', unsafe_allow_html=True)
-st.markdown("<h1>Silent SOS AI</h1>", unsafe_allow_html=True)
-st.markdown("<h2 style='text-align:center'>Help Without Saying a Word</h2>", unsafe_allow_html=True)
-st.write("*An AI sentinel that silently detects danger and calls for help before a word is spoken.*")
-st.markdown('<div style="text-align:center"><span class="tag">AI for Bharat: Governance & Social Impact</span></div>', unsafe_allow_html=True)
+st.title("🚨 Silent SOS AI")
+st.markdown("**AI-powered Emergency Detection System**")
+st.markdown("Boliye 'HELP' ya 'bachao' aur AI turant SOS bhej degi")
 
-st.write("---")
+# Session State
+if 'monitoring' not in st.session_state:
+    st.session_state.monitoring = False
+if 'alert_sent' not in st.session_state:
+    st.session_state.alert_sent = False
 
+# Columns
 col1, col2 = st.columns(2)
-with col1:
-    st.subheader("🚨 AI Features")
-    
-    if 'monitoring' not in st.session_state:
-        st.session_state.monitoring = False
 
-    if st.button("▶️ Start AI Monitoring"):
-        st.session_state.monitoring = True
-        threading.Thread(target=start_monitoring, daemon=True).start()
-        st.success("AI Monitoring Started! Mic is listening...")
-
-    if st.button("⏹️ Stop Monitoring"):
-        st.session_state.monitoring = False
-        st.info("Monitoring Stopped")
-
-
-        
-        # AI Monitoring Function
+# AI Monitoring Function
 def start_monitoring():
- r = sr.Recognizer()
- danger_words = ["help", "bachao", "chodo", "madad", "police"]
-
- with sr.Microphone() as source:
-     st.warning("🎤 AI is Listening... Say 'HELP' for emergency")
-     while st.session_state.monitoring:
-         try:
-             audio = r.listen(source, timeout=1)
-             text = r.recognize_google(audio, language="en-IN").lower()
-                 for word in danger_words:
+    r = sr.Recognizer()
+    danger_words = ["help", "bachao", "chodo", "madad", "police", "save me"]
+    
+    with sr.Microphone() as source:
+        st.warning("🎤 AI is Listening... Say 'HELP' for emergency")
+        r.adjust_for_ambient_noise(source, duration=1)
+        
+        while st.session_state.monitoring:
+            try:
+                audio = r.listen(source, timeout=5, phrase_time_limit=3)
+                text = r.recognize_google(audio, language="en-IN").lower()
+                st.info(f"Heard: {text}")
+                
+                for word in danger_words:
                     if word in text:
                         st.error(f"🚨 DANGER DETECTED: '{text}'")
-                        # Auto PANIC trigger
                         st.error("SOS TRIGGERED!")
                         st.success("📍 Location Sent: Pathankot, Punjab")
                         st.success("📞 Alert Sent to: +916239719750")
+                        st.success(f"⏰ Time: {datetime.now().strftime('%H:%M:%S')}")
                         st.session_state.monitoring = False
-                        return                                                          
-         except:
-             pass
-    if st.button("🆘 PANIC BUTTON", type="primary"):
-        st.error("SOS TRIGGERED!")
-        st.success("📍 Location Sent: Pathankot, Punjab")
-        st.success("📞 Alert Sent to: +916239719750")
+                        st.session_state.alert_sent = True
+                        return
+            except sr.WaitTimeoutError:
+                pass
+            except sr.UnknownValueError:
+                pass
+            except Exception as e:
+                pass
+
+# Buttons
+with col1:
+    if st.button("▶️ Start AI Monitoring", type="primary"):
+        st.session_state.monitoring = True
+        st.session_state.alert_sent = False
+        threading.Thread(target=start_monitoring, daemon=True).start()
 
 with col2:
-    st.subheader("TEAM DETAILS")
-    st.write("**Team Name:** Tech Nova")
-    st.write("**College:** Sardar Beant Singh State University")
-    st.write("**Members:**")
-    st.write("- Jashanpreet Kaur - Team Leader")
-    st.write("- Isha Bhardwaj - Team Member")
-    st.write("**Contact:** +91 7888738745,6239719750")
-    st.write("**Email:** kaurjashanpreet502@gmail.com, ishabhardwaj2526@gmail.com")
+    if st.button("⏹️ Stop Monitoring"):
+        st.session_state.monitoring = False
+        st.write("Monitoring Stopped")
+
+# Status
+if st.session_state.monitoring:
+    st.success("✅ AI is Active and Listening...")
+elif st.session_state.alert_sent:
+    st.error("🚨 Alert was sent! Stay Safe!")
+else:
+    st.info("🔴 AI is Idle. Press Start to begin.")
+
+# Instructions
+st.markdown("---")
+st.subheader("📖 How to Use:")
+st.markdown("1. **Start AI Monitoring** button dabao")
+st.markdown("2. Mic permission **Allow** karo")
+st.markdown("3. Emergency me bolo: **HELP, bachao, police, madad**")
+st.markdown("4. AI turant alert dikha degi")
