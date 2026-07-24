@@ -1,3 +1,2 @@
 streamlit==1.60.0
-speechrecognition==3.14.3
-streamlit-mic-recorder==0.0.8
+
