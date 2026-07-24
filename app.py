@@ -1,5 +1,6 @@
 import streamlit as st
-
+import speech_recognition as sr
+import threading
 st.set_page_config(page_title="Silent SOS AI", layout="wide")
 
 st.markdown("""
@@ -23,8 +24,43 @@ st.write("---")
 col1, col2 = st.columns(2)
 with col1:
     st.subheader("🚨 AI Features")
+    
+    if 'monitoring' not in st.session_state:
+        st.session_state.monitoring = False
+
     if st.button("▶️ Start AI Monitoring"):
-        st.info("AI is Listening for 'Help'...")
+        st.session_state.monitoring = True
+        threading.Thread(target=start_monitoring, daemon=True).start()
+        st.success("AI Monitoring Started! Mic is listening...")
+
+    if st.button("⏹️ Stop Monitoring"):
+        st.session_state.monitoring = False
+        st.info("Monitoring Stopped")
+
+
+        
+        # AI Monitoring Function
+def start_monitoring():
+ r = sr.Recognizer()
+ danger_words = ["help", "bachao", "chodo", "madad", "police"]
+
+ with sr.Microphone() as source:
+     st.warning("🎤 AI is Listening... Say 'HELP' for emergency")
+     while st.session_state.monitoring:
+         try:
+             audio = r.listen(source, timeout=1)
+             text = r.recognize_google(audio, language="en-IN").lower()
+                 for word in danger_words:
+                    if word in text:
+                        st.error(f"🚨 DANGER DETECTED: '{text}'")
+                        # Auto PANIC trigger
+                        st.error("SOS TRIGGERED!")
+                        st.success("📍 Location Sent: Pathankot, Punjab")
+                        st.success("📞 Alert Sent to: +916239719750")
+                        st.session_state.monitoring = False
+                        return                                                          
+         except:
+             pass
     if st.button("🆘 PANIC BUTTON", type="primary"):
         st.error("SOS TRIGGERED!")
         st.success("📍 Location Sent: Pathankot, Punjab")
