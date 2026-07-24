@@ -63,7 +63,16 @@ with col2:
     if st.button("⏹️ Stop Monitoring"):
         st.session_state.monitoring = False
         st.write("Monitoring Stopped")
+st.markdown("---")
 
+# TEST BUTTON FOR DEMO
+if st.button("🚨 TEST ALERT - Click karke dekho", type="secondary"):
+    st.error("🚨 DANGER DETECTED: 'TEST MODE'")
+    st.error("SOS TRIGGERED!")
+    st.success("📍 Location Sent: Pathankot, Punjab")
+    st.success("📞 Alert Sent to: +916239719750")
+    st.success(f"⏰ Time: {datetime.now().strftime('%H:%M:%S')}")
+    st.session_state.alert_sent = True
 # Status
 if st.session_state.monitoring:
     st.success("✅ AI is Active and Listening...")
