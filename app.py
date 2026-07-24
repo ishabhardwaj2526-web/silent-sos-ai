@@ -28,7 +28,7 @@ with col1:
     if st.button("🆘 PANIC BUTTON", type="primary"):
         st.error("SOS TRIGGERED!")
         st.success("📍 Location Sent: Pathankot, Punjab")
-        st.success("📞 Alert Sent to: +91 7888738745")
+        st.success("📞 Alert Sent to: +916239719750")
 
 with col2:
     st.subheader("TEAM DETAILS")
