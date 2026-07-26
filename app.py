@@ -1,120 +1,98 @@
 #include <Wire.h>
 #include <TinyGPS++.h>
-#include <SoftwareSerial.h>
+#include <HardwareSerial.h>
 #include <MPU6050.h>
 
 MPU6050 mpu;
 TinyGPSPlus gps;
 
-// Pins
-#define BUTTON_PIN 2      // I am Safe button
-#define PIR_PIN 3         // Movement sensor
-#define GPS_RX 16         // NEO-6M TX
-#define GPS_TX 17         // NEO-6M RX  
-#define GSM_RX 4          // SIM800L TX
-#define GSM_TX 5          // SIM800L RX
+// ==== SETTINGS ===
+String emergencyNumber = "+91XXXXXXXXXX"; // <-- APNA NUMBER YAHAN DALO
+// ==================
 
-SoftwareSerial gpsSerial(GPS_RX, GPS_TX);
-SoftwareSerial gsmSerial(GSM_RX, GSM_TX);
+// Pins for ESP32
+HardwareSerial gpsSerial(1); // GPS: RX=16, TX=17
+HardwareSerial gsmSerial(2); // GSM: RX=4, TX=5
+#define PIR_PIN 3
+#define BUTTON_PIN 2
 
-String emergencyNumber = "+91XXXXXXXXXX"; // YAHAN APNA NUMBER DALO
-float accX, accY, accZ, gyroX, gyroY, gyroZ;
-bool fallDetected = false;
+float ax, ay, az, gx, gy, gz;
 unsigned long lastAlert = 0;
 
 void setup() {
   Serial.begin(115200);
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-  pinMode(PIR_PIN, INPUT);
-  
   Wire.begin();
   mpu.initialize();
   
-  gpsSerial.begin(9600);
-  gsmSerial.begin(9600);
+  pinMode(PIR_PIN, INPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
   
-  Serial.println("SafeTrack System Starting...");
+  gpsSerial.begin(9600, SERIAL_8N1, 16, 17);
+  gsmSerial.begin(9600, SERIAL_8N1, 4, 5);
+  
+  Serial.println("SafeTrack System ON");
   delay(5000);
 }
 
 void loop() {
-  // 1. GPS Data Update
-  while (gpsSerial.available() > 0) {
-    gps.encode(gpsSerial.read());
+  // GPS Read
+  while (gpsSerial.available() > 0) gps.encode(gpsSerial.read());
+  
+  // 1. FALL DETECTION
+  mpu.getAcceleration(&ax, &ay, &az);
+  float totalG = sqrt(ax*ax + ay*ay + az*az) / 16384.0; // convert to g
+  
+  if((totalG > 2.0 || totalG < 0.5) && millis() - lastAlert > 10000) {
+    sendSOS("FALL DETECTED!");
+    makeCall();
+    lastAlert = millis();
   }
   
-  // 2. Fall Detection using MPU6050
-  mpu.getMotion6(&accX, &accY, &accZ, &gyroX, &gyroY, &gyroZ);
-  float totalAccel = sqrt(accX*accX + accY*accY + accZ*accZ);
-  
-  if(totalAccel > 2.5 || totalAccel < 0.5) { // Fall threshold
-    if(millis() - lastAlert > 10000) { // 10 sec gap
-      sendSOS("FALL DETECTED!");
-      makeCall();
-      lastAlert = millis();
-    }
-  }
-  
-  // 3. Movement Detection
+  // 2. MOVEMENT DETECTION
   if(digitalRead(PIR_PIN) == HIGH) {
     sendAlert("MOVEMENT DETECTED!");
     delay(5000);
   }
   
-  // 4. I am Safe Button
+  // 3. I AM SAFE BUTTON
   if(digitalRead(BUTTON_PIN) == LOW) {
     sendAlert("I AM SAFE");
     delay(2000);
   }
   
-  delay(100);
+  delay(200);
 }
 
-void sendSOS(String message) {
-  String location = getLocation();
-  String dateTime = getDateTime();
-  String fullMsg = message + "\nTime: " + dateTime + "\nLocation: " + location;
-  
-  gsmSerial.println("AT+CMGF=1"); delay(500);
-  gsmSerial.println("AT+CMGS=\"" + emergencyNumber + "\""); delay(500);
-  gsmSerial.print(fullMsg); delay(500);
-  gsmSerial.write(26); // Ctrl+Z to send
-  Serial.println("SOS Sent: " + fullMsg);
-}
-
-void sendAlert(String message) {
-  String location = getLocation();
-  String fullMsg = message + "\nLocation: " + location;
-  
+void sendSOS(String msg) {
+  String fullMsg = msg + "\nTime: " + getTime() + "\nLoc: " + getLocation();
   gsmSerial.println("AT+CMGF=1"); delay(500);
   gsmSerial.println("AT+CMGS=\"" + emergencyNumber + "\""); delay(500);
   gsmSerial.print(fullMsg); delay(500);
   gsmSerial.write(26);
-  Serial.println("Alert Sent: " + fullMsg);
+}
+
+void sendAlert(String msg) {
+  String fullMsg = msg + "\nLoc: " + getLocation();
+  gsmSerial.println("AT+CMGF=1"); delay(500);
+  gsmSerial.println("AT+CMGS=\"" + emergencyNumber + "\""); delay(500);
+  gsmSerial.print(fullMsg); delay(500);
+  gsmSerial.write(26);
 }
 
 void makeCall() {
-  gsmSerial.println("ATD" + emergencyNumber + ";"); // Call
-  delay(20000); // 20 sec ring
-  gsmSerial.println("ATH"); // Hang up
+  gsmSerial.println("ATD" + emergencyNumber + ";");
+  delay(20000);
+  gsmSerial.println("ATH");
 }
 
 String getLocation() {
-  if(gps.location.isValid()) {
-    return "https://maps.google.com/?q=" + 
-           String(gps.location.lat(), 6) + "," + 
-           String(gps.location.lng(), 6);
-  } else {
-    return "GPS Not Found";
-  }
+  if(gps.location.isValid())
+    return "https://maps.google.com/?q=" + String(gps.location.lat(),6) + "," + String(gps.location.lng(),6);
+  else return "GPS Waiting...";
 }
 
-String getDateTime() {
-  if(gps.date.isValid() && gps.time.isValid()) {
-    String dt = String(gps.date.day()) + "/" + String(gps.date.month()) + "/" + String(gps.date.year());
-    dt += " " + String(gps.time.hour()) + ":" + String(gps.time.minute());
-    return dt;
-  } else {
-    return "No Time";
-  }
+String getTime() {
+  if(gps.date.isValid() && gps.time.isValid())
+    return String(gps.date.day()) + "/" + String(gps.date.month()) + " " + String(gps.time.hour()) + ":" + String(gps.time.minute());
+  else return "No Time";
 }
