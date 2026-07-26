@@ -1,98 +1,40 @@
-#include <Wire.h>
-#include <TinyGPS++.h>
-#include <HardwareSerial.h>
-#include <MPU6050.h>
+import streamlit as st
+from datetime import datetime
 
-MPU6050 mpu;
-TinyGPSPlus gps;
+st.set_page_config(page_title="Silent SOS AI", page_icon="🚨", layout="centered")
 
-// ==== SETTINGS ===
-String emergencyNumber = "+91XXXXXXXXXX"; // <-- APNA NUMBER YAHAN DALO
-// ==================
+st.title("🚨 Silent SOS AI")
+st.subheader("AI-powered Emergency System")
 
-// Pins for ESP32
-HardwareSerial gpsSerial(1); // GPS: RX=16, TX=17
-HardwareSerial gsmSerial(2); // GSM: RX=4, TX=5
-#define PIR_PIN 3
-#define BUTTON_PIN 2
+def get_location():
+    lat, lon = 31.3260, 74.9275  # Tarn Taran demo location
+    return f"https://maps.google.com/?q={lat},{lon}"
 
-float ax, ay, az, gx, gy, gz;
-unsigned long lastAlert = 0;
+def get_time():
+    return datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-void setup() {
-  Serial.begin(115200);
-  Wire.begin();
-  mpu.initialize();
-  
-  pinMode(PIR_PIN, INPUT);
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-  
-  gpsSerial.begin(9600, SERIAL_8N1, 16, 17);
-  gsmSerial.begin(9600, SERIAL_8N1, 4, 5);
-  
-  Serial.println("SafeTrack System ON");
-  delay(5000);
-}
+def send_alert(message):
+    st.success("📲 ALERT SENT!")
+    st.info(f"**Message:** {message}")
+    st.info(f"**Time:** {get_time()}")
+    st.info(f"**Location:** {get_location()}")
 
-void loop() {
-  // GPS Read
-  while (gpsSerial.available() > 0) gps.encode(gpsSerial.read());
-  
-  // 1. FALL DETECTION
-  mpu.getAcceleration(&ax, &ay, &az);
-  float totalG = sqrt(ax*ax + ay*ay + az*az) / 16384.0; // convert to g
-  
-  if((totalG > 2.0 || totalG < 0.5) && millis() - lastAlert > 10000) {
-    sendSOS("FALL DETECTED!");
-    makeCall();
-    lastAlert = millis();
-  }
-  
-  // 2. MOVEMENT DETECTION
-  if(digitalRead(PIR_PIN) == HIGH) {
-    sendAlert("MOVEMENT DETECTED!");
-    delay(5000);
-  }
-  
-  // 3. I AM SAFE BUTTON
-  if(digitalRead(BUTTON_PIN) == LOW) {
-    sendAlert("I AM SAFE");
-    delay(2000);
-  }
-  
-  delay(200);
-}
+st.markdown("### Demo Mode")
 
-void sendSOS(String msg) {
-  String fullMsg = msg + "\nTime: " + getTime() + "\nLoc: " + getLocation();
-  gsmSerial.println("AT+CMGF=1"); delay(500);
-  gsmSerial.println("AT+CMGS=\"" + emergencyNumber + "\""); delay(500);
-  gsmSerial.print(fullMsg); delay(500);
-  gsmSerial.write(26);
-}
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("🚨 FALL DETECTED", use_container_width=True):
+        send_alert("FALL DETECTED!")
+with col2:
+    if st.button("✅ I AM SAFE", use_container_width=True):
+        send_alert("I AM SAFE")
 
-void sendAlert(String msg) {
-  String fullMsg = msg + "\nLoc: " + getLocation();
-  gsmSerial.println("AT+CMGF=1"); delay(500);
-  gsmSerial.println("AT+CMGS=\"" + emergencyNumber + "\""); delay(500);
-  gsmSerial.print(fullMsg); delay(500);
-  gsmSerial.write(26);
-}
+if st.button("📍 MOVEMENT DETECTED", use_container_width=True):
+    send_alert("MOVEMENT DETECTED!")
 
-void makeCall() {
-  gsmSerial.println("ATD" + emergencyNumber + ";");
-  delay(20000);
-  gsmSerial.println("ATH");
-}
-
-String getLocation() {
-  if(gps.location.isValid())
-    return "https://maps.google.com/?q=" + String(gps.location.lat(),6) + "," + String(gps.location.lng(),6);
-  else return "GPS Waiting...";
-}
-
-String getTime() {
-  if(gps.date.isValid() && gps.time.isValid())
-    return String(gps.date.day()) + "/" + String(gps.date.month()) + " " + String(gps.time.hour()) + ":" + String(gps.time.minute());
-  else return "No Time";
-}
+st.markdown("---")
+st.markdown("**Kaise kaam karta hai:**")
+st.markdown("1. Mic hamesha background me sunta hai 'HELP' / 'bachao'")
+st.markdown("2. Turant SOS trigger hota hai")
+st.markdown("3. Location + SMS + Call auto chale jate hai")
+st.caption("Note: Cloud security ki wajah se demo me button use kiya hai")
